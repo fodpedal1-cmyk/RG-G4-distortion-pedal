@@ -69,13 +69,13 @@ private:
     juce::Slider gainKnob;
 
     //==========================================================
-    // AGGRESSION 3-WAY SWITCH
+    // AGGRESSION 3-WAY MINI METAL TOGGLE
     //==========================================================
 
     juce::Slider aggressionSwitch;
 
     //==========================================================
-    // FOOTSWITCH
+    // ROUND METAL 3PDT FOOTSWITCH
     //==========================================================
 
     juce::ToggleButton footswitch;
