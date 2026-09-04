@@ -7,21 +7,17 @@
 
 G4LookAndFeel::G4LookAndFeel()
 {
-    setColour (
-        juce::Slider::thumbColourId,
-        juce::Colours::white);
+    setColour (juce::Slider::thumbColourId,
+               juce::Colours::white);
 
-    setColour (
-        juce::Slider::rotarySliderFillColourId,
-        juce::Colours::white);
+    setColour (juce::Slider::rotarySliderFillColourId,
+               juce::Colours::white);
 
-    setColour (
-        juce::Slider::rotarySliderOutlineColourId,
-        juce::Colours::black);
+    setColour (juce::Slider::rotarySliderOutlineColourId,
+               juce::Colours::black);
 
-    setColour (
-        juce::ToggleButton::textColourId,
-        juce::Colours::white);
+    setColour (juce::ToggleButton::textColourId,
+               juce::Colours::white);
 }
 
 //==============================================================
@@ -47,12 +43,12 @@ void G4LookAndFeel::drawRotarySlider (
         static_cast<float> (width),
         static_cast<float> (height));
 
-    auto size = juce::jmin (
+    const float size = juce::jmin (
         bounds.getWidth(),
         bounds.getHeight());
 
-    auto radius = size * 0.34f;
-    auto centre = bounds.getCentre();
+    const float radius = size * 0.34f;
+    const auto centre = bounds.getCentre();
 
     // Shadow
     g.setColour (
@@ -82,7 +78,7 @@ void G4LookAndFeel::drawRotarySlider (
         radius * 2.0f);
 
     // Dark knob
-    auto innerRadius = radius * 0.88f;
+    const float innerRadius = radius * 0.88f;
 
     g.setGradientFill (
         juce::ColourGradient (
@@ -111,15 +107,15 @@ void G4LookAndFeel::drawRotarySlider (
         innerRadius * 1.40f);
 
     // Pointer
-    auto angle =
+    const auto angle =
         rotaryStartAngle
         + sliderPosProportional
         * (rotaryEndAngle - rotaryStartAngle);
 
     juce::Path pointer;
 
-    auto pointerLength = radius * 0.70f;
-    auto pointerThickness = 3.0f;
+    const float pointerLength = radius * 0.70f;
+    const float pointerThickness = 3.0f;
 
     pointer.addRoundedRectangle (
         -pointerThickness * 0.5f,
@@ -128,8 +124,7 @@ void G4LookAndFeel::drawRotarySlider (
         pointerLength,
         1.2f);
 
-    g.setColour (
-        juce::Colours::white);
+    g.setColour (juce::Colours::white);
 
     g.fillPath (
         pointer,
@@ -137,8 +132,7 @@ void G4LookAndFeel::drawRotarySlider (
             .translated (centre.x, centre.y));
 
     // Center cap
-    g.setColour (
-        juce::Colour (0xff111111));
+    g.setColour (juce::Colour (0xff111111));
 
     g.fillEllipse (
         centre.x - 4.0f,
@@ -175,26 +169,22 @@ void G4LookAndFeel::drawLinearSlider (
         static_cast<float> (width),
         static_cast<float> (height));
 
-    const float centreX =
-        area.getCentreX();
+    const float centreX = area.getCentreX();
 
-    // Dark switch plate
-    auto plate =
-        juce::Rectangle<float> (
-            centreX - 12.0f,
-            area.getY() + 10.0f,
-            24.0f,
-            area.getHeight() - 20.0f);
+    // Switch plate
+    auto plate = juce::Rectangle<float> (
+        centreX - 12.0f,
+        area.getY() + 10.0f,
+        24.0f,
+        area.getHeight() - 20.0f);
 
-    g.setColour (
-        juce::Colour (0xff141414));
+    g.setColour (juce::Colour (0xff141414));
 
     g.fillRoundedRectangle (
         plate,
         7.0f);
 
-    g.setColour (
-        juce::Colour (0xff777777));
+    g.setColour (juce::Colour (0xff777777));
 
     g.drawRoundedRectangle (
         plate,
@@ -210,9 +200,8 @@ void G4LookAndFeel::drawLinearSlider (
     const float bottomY =
         plate.getBottom() - 13.0f;
 
-    // Blue
-    g.setColour (
-        juce::Colour (0xff2474ff));
+    // BLUE
+    g.setColour (juce::Colour (0xff2474ff));
 
     g.fillEllipse (
         centreX - 3.0f,
@@ -220,9 +209,8 @@ void G4LookAndFeel::drawLinearSlider (
         6.0f,
         6.0f);
 
-    // Off
-    g.setColour (
-        juce::Colour (0xff888888));
+    // OFF
+    g.setColour (juce::Colour (0xff888888));
 
     g.fillEllipse (
         centreX - 3.0f,
@@ -230,9 +218,8 @@ void G4LookAndFeel::drawLinearSlider (
         6.0f,
         6.0f);
 
-    // Red
-    g.setColour (
-        juce::Colour (0xffe52b2b));
+    // RED
+    g.setColour (juce::Colour (0xffe52b2b));
 
     g.fillEllipse (
         centreX - 3.0f,
@@ -292,7 +279,7 @@ void G4LookAndFeel::drawToggleButton (
     auto centre =
         bounds.getCentre();
 
-    auto radius =
+    const float radius =
         juce::jmin (
             bounds.getWidth(),
             bounds.getHeight()) * 0.34f;
@@ -325,7 +312,7 @@ void G4LookAndFeel::drawToggleButton (
         radius * 2.0f);
 
     // Inner face
-    auto inner =
+    const float inner =
         radius * 0.78f;
 
     g.setGradientFill (
@@ -359,7 +346,7 @@ void G4LookAndFeel::drawToggleButton (
         radius * 2.0f,
         2.0f);
 
-    // Down effect
+    // Press effect
     if (shouldDrawButtonAsDown)
     {
         g.setColour (
@@ -372,6 +359,7 @@ void G4LookAndFeel::drawToggleButton (
             inner * 2.0f);
     }
 
+    // Highlight
     if (shouldDrawButtonAsHighlighted)
     {
         g.setColour (
@@ -445,8 +433,7 @@ RG_G4AudioProcessorEditor::RG_G4AudioProcessorEditor (
 
     footswitch.setButtonText ("");
 
-    footswitch.setClickingTogglesState (
-        true);
+    footswitch.setClickingTogglesState (true);
 
     addAndMakeVisible (
         footswitch);
@@ -477,9 +464,7 @@ RG_G4AudioProcessorEditor::RG_G4AudioProcessorEditor (
     // EXACT 500 x 700
     //==========================================================
 
-    setSize (
-        500,
-        700);
+    setSize (500, 700);
 
     setResizable (
         false,
@@ -521,8 +506,7 @@ void RG_G4AudioProcessorEditor::setupKnob (
         true,
         0.5);
 
-    addAndMakeVisible (
-        slider);
+    addAndMakeVisible (slider);
 
     auto attachment =
         std::make_unique<SliderAttachment> (
@@ -570,8 +554,7 @@ void RG_G4AudioProcessorEditor::setupLabel (
     label.setJustificationType (
         juce::Justification::centred);
 
-    addAndMakeVisible (
-        label);
+    addAndMakeVisible (label);
 }
 
 //==============================================================
@@ -657,11 +640,10 @@ void RG_G4AudioProcessorEditor::paint (
         juce::Justification::centredRight);
 
     //==========================================================
-    // RG G4 BRANDING
+    // RG G4
     //==========================================================
 
-    g.setColour (
-        juce::Colours::white);
+    g.setColour (juce::Colours::white);
 
     g.setFont (
         juce::Font (
@@ -677,67 +659,139 @@ void RG_G4AudioProcessorEditor::paint (
         juce::Justification::centred);
 
     //==========================================================
-    // STATUS LED
+    // REALISTIC PLASTIC LED
     //==========================================================
 
     const float ledX = 250.0f;
     const float ledY = 478.0f;
 
     auto* bypass =
-        processor.apvts.getRawParameterValue (
-            "BYPASS");
+        processor.apvts.getRawParameterValue ("BYPASS");
 
     const bool active =
         bypass != nullptr
             ? bypass->load() < 0.5f
             : true;
 
+    // Soft green glow
     if (active)
     {
-        // Glow
-        g.setColour (
-            juce::Colour (0xff20ff55)
-                .withAlpha (0.18f));
+        for (int i = 5; i >= 1; --i)
+        {
+            const float glowRadius =
+                8.0f + static_cast<float> (i) * 5.0f;
 
-        g.fillEllipse (
-            ledX - 22.0f,
-            ledY - 22.0f,
-            44.0f,
-            44.0f);
+            const float alpha =
+                0.025f * static_cast<float> (6 - i);
 
-        // LED
-        g.setColour (
-            juce::Colour (0xff20ff55));
+            g.setColour (
+                juce::Colour (0xff20ff55)
+                    .withAlpha (alpha));
 
-        g.fillEllipse (
-            ledX - 7.0f,
-            ledY - 7.0f,
-            14.0f,
-            14.0f);
-
-        g.setColour (
-            juce::Colours::white.withAlpha (0.45f));
-
-        g.fillEllipse (
-            ledX - 4.0f,
-            ledY - 5.0f,
-            5.0f,
-            4.0f);
+            g.fillEllipse (
+                ledX - glowRadius,
+                ledY - glowRadius,
+                glowRadius * 2.0f,
+                glowRadius * 2.0f);
+        }
     }
-    else
+
+    // Plastic / metal outer ring
+    const float ringRadius = 13.0f;
+
+    g.setGradientFill (
+        juce::ColourGradient (
+            juce::Colour (0xffeeeeee),
+            ledX - 8.0f,
+            ledY - 10.0f,
+            juce::Colour (0xff555555),
+            ledX + 10.0f,
+            ledY + 10.0f,
+            true));
+
+    g.fillEllipse (
+        ledX - ringRadius,
+        ledY - ringRadius,
+        ringRadius * 2.0f,
+        ringRadius * 2.0f);
+
+    // Dark inner ring
+    const float innerRing = 10.5f;
+
+    g.setColour (
+        juce::Colour (0xff111111));
+
+    g.fillEllipse (
+        ledX - innerRing,
+        ledY - innerRing,
+        innerRing * 2.0f,
+        innerRing * 2.0f);
+
+    // Transparent green plastic lens
+    const float lensRadius = 8.5f;
+
+    g.setGradientFill (
+        juce::ColourGradient (
+            active
+                ? juce::Colour (0xffbaffc8)
+                : juce::Colour (0xff24452d),
+
+            ledX - 3.0f,
+            ledY - 6.0f,
+
+            active
+                ? juce::Colour (0xff08a83b)
+                : juce::Colour (0xff08150c),
+
+            ledX + 5.0f,
+            ledY + 7.0f,
+
+            true));
+
+    g.fillEllipse (
+        ledX - lensRadius,
+        ledY - lensRadius,
+        lensRadius * 2.0f,
+        lensRadius * 2.0f);
+
+    // Bright inner core
+    if (active)
     {
         g.setColour (
-            juce::Colour (0xff161616));
+            juce::Colour (0xff39ff69)
+                .withAlpha (0.55f));
 
         g.fillEllipse (
-            ledX - 7.0f,
-            ledY - 7.0f,
-            14.0f,
-            14.0f);
+            ledX - 5.0f,
+            ledY - 5.0f,
+            10.0f,
+            10.0f);
     }
 
+    // Glass reflection
+    g.setColour (
+        juce::Colours::white.withAlpha (
+            active ? 0.75f : 0.18f));
+
+    g.fillEllipse (
+        ledX - 4.0f,
+        ledY - 5.0f,
+        3.5f,
+        2.5f);
+
+    // Lens edge
+    g.setColour (
+        juce::Colours::black.withAlpha (0.65f));
+
+    g.drawEllipse (
+        ledX - lensRadius,
+        ledY - lensRadius,
+        lensRadius * 2.0f,
+        lensRadius * 2.0f,
+        1.0f);
+
     //==========================================================
-    // FOOTSWITCH LABEL
+    // FOOTSWITCH STATUS TEXT
     //==========================================================
 
     g.setColour (
@@ -764,8 +818,7 @@ void RG_G4AudioProcessorEditor::paint (
         juce::Colours::white.withAlpha (0.60f));
 
     g.setFont (
-        juce::Font (
-            8.0f));
+        juce::Font (8.0f));
 
     g.drawText (
         "RG electronics",
@@ -804,7 +857,6 @@ void RG_G4AudioProcessorEditor::resized()
         145,
         145);
 
-    // Labels
     bassLabel.setBounds (
         20,
         88,
@@ -852,7 +904,7 @@ void RG_G4AudioProcessorEditor::resized()
         20);
 
     //==========================================================
-    // AGGRESSION — CENTER
+    // AGGRESSION
     //==========================================================
 
     aggressionLabel.setBounds (
@@ -867,7 +919,6 @@ void RG_G4AudioProcessorEditor::resized()
         70,
         135);
 
-    // Small position labels
     blueLabel.setBounds (
         286,
         286,
@@ -887,7 +938,7 @@ void RG_G4AudioProcessorEditor::resized()
         16);
 
     //==========================================================
-    // ROUND METAL 3PDT
+    // ROUND METAL 3PDT FOOTSWITCH
     //==========================================================
 
     footswitch.setBounds (
