@@ -893,3 +893,11 @@ void RG_G4AudioProcessor::setStateInformation (
                 *xml));
     }
 }
+//==============================================================
+// CREATE PLUGIN INSTANCE
+//==============================================================
+
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+{
+    return new RG_G4AudioProcessor();
+}
