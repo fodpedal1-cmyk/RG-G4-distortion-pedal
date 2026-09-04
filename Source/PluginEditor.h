@@ -4,138 +4,128 @@
 #include "PluginProcessor.h"
 
 //==============================================================
-// RG PRECISION DRIVE - EDITOR
+// RG G4 LOOK AND FEEL
 //==============================================================
 
-class RG_Precision_DriveAudioProcessorEditor
-    : public juce::AudioProcessorEditor,
-      private juce::Timer
+class G4LookAndFeel : public juce::LookAndFeel_V4
 {
 public:
-    RG_Precision_DriveAudioProcessorEditor(
-        RG_Precision_DriveAudioProcessor&);
+    G4LookAndFeel();
 
-    ~RG_Precision_DriveAudioProcessorEditor() override;
+    void drawRotarySlider (
+        juce::Graphics& g,
+        int x, int y, int width, int height,
+        float sliderPosProportional,
+        float rotaryStartAngle,
+        float rotaryEndAngle,
+        juce::Slider& slider) override;
 
-    void paint(juce::Graphics&) override;
+    void drawLinearSlider (
+        juce::Graphics& g,
+        int x, int y, int width, int height,
+        float sliderPos,
+        float minSliderPos,
+        float maxSliderPos,
+        juce::Slider::SliderStyle style,
+        juce::Slider& slider) override;
+
+    void drawToggleButton (
+        juce::Graphics& g,
+        juce::ToggleButton& button,
+        bool shouldDrawButtonAsHighlighted,
+        bool shouldDrawButtonAsDown) override;
+};
+
+//==============================================================
+// RG G4 EDITOR
+//==============================================================
+
+class RG_G4AudioProcessorEditor
+    : public juce::AudioProcessorEditor
+{
+public:
+    explicit RG_G4AudioProcessorEditor (RG_G4AudioProcessor&);
+    ~RG_G4AudioProcessorEditor() override;
+
+    void paint (juce::Graphics&) override;
     void resized() override;
 
 private:
 
-    //==========================================================
-    // TIMER
-    //==========================================================
+    RG_G4AudioProcessor& processor;
 
-    void timerCallback() override;
-
-    //==========================================================
-    // PROCESSOR
-    //==========================================================
-
-    RG_Precision_DriveAudioProcessor& audioProcessor;
-
-    //==========================================================
-    // PEDAL KNOB
-    //==========================================================
-
-    class PedalKnob : public juce::Slider
-    {
-    public:
-        PedalKnob();
-
-        void paint(juce::Graphics&) override;
-
-        void mouseDown(
-            const juce::MouseEvent&) override;
-
-        void mouseDrag(
-            const juce::MouseEvent&) override;
-
-    private:
-        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PedalKnob)
-    };
+    G4LookAndFeel g4LookAndFeel;
 
     //==========================================================
     // KNOBS
     //==========================================================
 
-    PedalKnob volumeKnob;
-    PedalKnob brightKnob;
-    PedalKnob attackKnob;
-    PedalKnob driveKnob;
-    PedalKnob gateKnob;
+    juce::Slider bassKnob;
+    juce::Slider middleKnob;
+    juce::Slider trebleKnob;
+
+    juce::Slider volumeKnob;
+    juce::Slider gainKnob;
 
     //==========================================================
-    // LABELS
+    // AGGRESSION 3-WAY SWITCH
     //==========================================================
 
-    juce::Label volumeLabel;
-    juce::Label brightLabel;
-    juce::Label attackLabel;
-    juce::Label driveLabel;
-    juce::Label gateLabel;
+    juce::Slider aggressionSwitch;
 
     //==========================================================
     // FOOTSWITCH
     //==========================================================
 
-    juce::ToggleButton bypassButton;
+    juce::ToggleButton footswitch;
 
     //==========================================================
-    // BLUE LED
+    // LABELS
     //==========================================================
 
-    juce::Label led;
+    juce::Label bassLabel;
+    juce::Label middleLabel;
+    juce::Label trebleLabel;
+
+    juce::Label volumeLabel;
+    juce::Label aggressionLabel;
+    juce::Label gainLabel;
+
+    juce::Label blueLabel;
+    juce::Label offLabel;
+    juce::Label redLabel;
 
     //==========================================================
-    // PARAMETER ATTACHMENTS
+    // APVTS ATTACHMENTS
     //==========================================================
 
-    std::unique_ptr<
-        juce::AudioProcessorValueTreeState::SliderAttachment>
-        volumeAttachment;
+    using SliderAttachment =
+        juce::AudioProcessorValueTreeState::SliderAttachment;
 
-    std::unique_ptr<
-        juce::AudioProcessorValueTreeState::SliderAttachment>
-        brightAttachment;
+    using ButtonAttachment =
+        juce::AudioProcessorValueTreeState::ButtonAttachment;
 
-    std::unique_ptr<
-        juce::AudioProcessorValueTreeState::SliderAttachment>
-        attackAttachment;
+    std::unique_ptr<SliderAttachment> bassAttachment;
+    std::unique_ptr<SliderAttachment> middleAttachment;
+    std::unique_ptr<SliderAttachment> trebleAttachment;
 
-    std::unique_ptr<
-        juce::AudioProcessorValueTreeState::SliderAttachment>
-        driveAttachment;
+    std::unique_ptr<SliderAttachment> volumeAttachment;
+    std::unique_ptr<SliderAttachment> gainAttachment;
 
-    std::unique_ptr<
-        juce::AudioProcessorValueTreeState::SliderAttachment>
-        gateAttachment;
+    std::unique_ptr<SliderAttachment> aggressionAttachment;
 
-    std::unique_ptr<
-        juce::AudioProcessorValueTreeState::ButtonAttachment>
-        bypassAttachment;
+    std::unique_ptr<ButtonAttachment> bypassAttachment;
 
     //==========================================================
-    // SETUP
-    //==========================================================
 
-    void setupKnob(
-        PedalKnob& knob,
-        juce::Slider::SliderStyle style);
+    void setupKnob (
+        juce::Slider& slider,
+        const juce::String& parameterID);
 
-    void setupLabel(
+    void setupLabel (
         juce::Label& label,
         const juce::String& text);
 
-    void updateLED();
-
-    //==========================================================
-    // EDITOR SIZE
-    //==========================================================
-
-    static constexpr int editorWidth  = 700;
-    static constexpr int editorHeight = 900;
-
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(
-        RG_Precision_DriveAudioProcessorEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (
+        RG_G4AudioProcessorEditor)
 };
