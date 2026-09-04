@@ -64,20 +64,12 @@ RG_G4AudioProcessor::createParameterLayout()
 
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
-    //==========================================================================
-    // GAIN
-    //==========================================================================
-
     layout.add (
         std::make_unique<juce::AudioParameterFloat>(
             "GAIN",
             "Gain",
             Range (0.0f, 1.0f, 0.001f),
             0.55f));
-
-    //==========================================================================
-    // BASS
-    //==========================================================================
 
     layout.add (
         std::make_unique<juce::AudioParameterFloat>(
@@ -86,20 +78,12 @@ RG_G4AudioProcessor::createParameterLayout()
             Range (0.0f, 1.0f, 0.001f),
             0.50f));
 
-    //==========================================================================
-    // MID
-    //==========================================================================
-
     layout.add (
         std::make_unique<juce::AudioParameterFloat>(
             "MID",
             "Mid",
             Range (0.0f, 1.0f, 0.001f),
             0.50f));
-
-    //==========================================================================
-    // TREBLE
-    //==========================================================================
 
     layout.add (
         std::make_unique<juce::AudioParameterFloat>(
@@ -108,24 +92,12 @@ RG_G4AudioProcessor::createParameterLayout()
             Range (0.0f, 1.0f, 0.001f),
             0.50f));
 
-    //==========================================================================
-    // VOLUME
-    //==========================================================================
-
     layout.add (
         std::make_unique<juce::AudioParameterFloat>(
             "VOLUME",
             "Volume",
             Range (0.0f, 1.0f, 0.001f),
             0.70f));
-
-    //==========================================================================
-    // AGGRESSION
-    //
-    // 0 = OFF
-    // 1 = BLUE
-    // 2 = RED
-    //==========================================================================
 
     layout.add (
         std::make_unique<juce::AudioParameterInt>(
@@ -134,10 +106,6 @@ RG_G4AudioProcessor::createParameterLayout()
             0,
             2,
             1));
-
-    //==========================================================================
-    // BYPASS
-    //==========================================================================
 
     layout.add (
         std::make_unique<juce::AudioParameterBool>(
@@ -158,7 +126,10 @@ void RG_G4AudioProcessor::prepareToPlay (
 {
     juce::ignoreUnused (samplesPerBlock);
 
-    sampleRate = newSampleRate;
+    sampleRate =
+        juce::jmax (
+            22050.0,
+            newSampleRate);
 
     resetDSP();
 }
@@ -211,36 +182,44 @@ float RG_G4AudioProcessor::TL072::process (
     float fs,
     float slewMultiplier)
 {
-    // 16 V/us
-    const float slewRate =
-        SLEW_V_PER_US *
-        1.0e6f *
-        slewMultiplier;
+    if (!std::isfinite (target))
+        target = 0.0f;
 
+    fs =
+        juce::jmax (
+            22050.0f,
+            fs);
+
+    slewMultiplier =
+        juce::jlimit (
+            0.1f,
+            2.0f,
+            slewMultiplier);
+
+    // Stable normalized-audio slew limit.
     const float maximumStep =
-        slewRate / fs;
+        0.45f * slewMultiplier;
 
     const float difference =
         target - output;
 
-    const float limited =
+    output +=
         juce::jlimit (
             -maximumStep,
             maximumStep,
             difference);
 
-    output += limited;
-
-    // Practical op-amp output rail.
-    //
-    // Smooth saturation instead of a hard digital clip.
-    const float railScale =
-        RAIL * 0.55f;
+    // Analog-like op-amp saturation.
+    const float rail =
+        3.2f;
 
     output =
         std::tanh (
-            output / railScale)
-        * railScale;
+            output / rail)
+        * rail;
+
+    if (!std::isfinite (output))
+        output = 0.0f;
 
     return output;
 }
@@ -263,7 +242,15 @@ float RG_G4AudioProcessor::Filter::lowpass (
     float cutoff,
     float fs)
 {
-    const float safeCutoff =
+    if (!std::isfinite (input))
+        input = 0.0f;
+
+    fs =
+        juce::jmax (
+            22050.0f,
+            fs);
+
+    cutoff =
         juce::jlimit (
             5.0f,
             fs * 0.45f,
@@ -273,12 +260,15 @@ float RG_G4AudioProcessor::Filter::lowpass (
         std::exp (
             -2.0f *
             juce::MathConstants<float>::pi *
-            safeCutoff /
+            cutoff /
             fs);
 
     state =
         (1.0f - coefficient) * input
         + coefficient * state;
+
+    if (!std::isfinite (state))
+        state = 0.0f;
 
     return state;
 }
@@ -298,7 +288,12 @@ float RG_G4AudioProcessor::Filter::highpass (
             cutoff,
             fs);
 
-    return input - low;
+    const float result =
+        input - low;
+
+    return std::isfinite (result)
+        ? result
+        : 0.0f;
 }
 
 //==============================================================================
@@ -311,13 +306,26 @@ float RG_G4AudioProcessor::opAmpStage (
     float gain,
     float slewMultiplier)
 {
-    const float target =
-        input * gain;
+    if (!std::isfinite (input))
+        input = 0.0f;
 
-    return opAmp.process (
-        target,
-        static_cast<float> (sampleRate),
-        slewMultiplier);
+    gain =
+        juce::jlimit (
+            0.05f,
+            40.0f,
+            gain);
+
+    const float target =
+        juce::jlimit (
+            -8.0f,
+            8.0f,
+            input * gain);
+
+    return
+        opAmp.process (
+            target,
+            static_cast<float> (sampleRate),
+            slewMultiplier);
 }
 
 //==============================================================================
@@ -329,49 +337,64 @@ float RG_G4AudioProcessor::ledClip (
     float drive,
     int aggression)
 {
-    float threshold = 0.65f;
+    if (!std::isfinite (input))
+        input = 0.0f;
 
-    // Aggression changes clipping threshold.
+    drive =
+        juce::jlimit (
+            1.0f,
+            8.0f,
+            drive);
+
+    float threshold =
+        0.62f;
+
     if (aggression == 1)
-        threshold = 0.57f;
+        threshold = 0.54f;
 
     else if (aggression == 2)
-        threshold = 0.49f;
+        threshold = 0.46f;
 
     const float x =
-        input * drive;
+        juce::jlimit (
+            -8.0f,
+            8.0f,
+            input * drive);
 
-    // Slightly asymmetric LED behaviour.
-    const float positive =
-        std::tanh (
-            juce::jmax (
-                0.0f,
-                x - threshold)
-            * 2.5f);
+    float result;
 
-    const float negative =
-        std::tanh (
-            juce::jmax (
-                0.0f,
-                -x - threshold)
-            * 2.2f);
-
-    float result = x;
-
-    if (x > threshold)
+    if (x >= threshold)
     {
+        const float amount =
+            x - threshold;
+
         result =
             threshold
-            + positive *
-              (1.0f - threshold);
+            + std::tanh (
+                amount * 2.8f)
+              * 1.05f;
     }
-    else if (x < -threshold)
+    else if (x <= -threshold)
     {
+        const float amount =
+            -x - threshold;
+
         result =
             -threshold
-            - negative *
-              (1.0f - threshold);
+            - std::tanh (
+                amount * 2.6f)
+              * 1.00f;
     }
+    else
+    {
+        result = x;
+    }
+
+    result =
+        juce::jlimit (
+            -1.85f,
+            1.85f,
+            result);
 
     return result;
 }
@@ -384,26 +407,36 @@ float RG_G4AudioProcessor::aggressionStage (
     float input,
     int aggression)
 {
+    if (!std::isfinite (input))
+        input = 0.0f;
+
     if (aggression == 0)
         return input;
+
+    const float fs =
+        static_cast<float> (sampleRate);
 
     //==========================================================================
     // BLUE
     //==========================================================================
+
     if (aggression == 1)
     {
         const float tight =
             stage2HP.highpass (
                 input,
-                75.0f,
-                static_cast<float> (sampleRate));
+                85.0f,
+                fs);
 
         const float body =
-            input * 0.15f;
+            stage2LP.lowpass (
+                input,
+                6500.0f,
+                fs);
 
         return
-            tight * 0.85f
-            + body;
+            tight * 0.82f
+            + body * 0.18f;
     }
 
     //==========================================================================
@@ -413,19 +446,23 @@ float RG_G4AudioProcessor::aggressionStage (
     const float tight =
         stage2HP.highpass (
             input,
-            115.0f,
-            static_cast<float> (sampleRate));
+            105.0f,
+            fs);
 
-    const float top =
-        input -
+    const float body =
         stage2LP.lowpass (
             input,
-            5200.0f,
-            static_cast<float> (sampleRate));
+            7200.0f,
+            fs);
+
+    const float saturated =
+        std::tanh (
+            input * 1.35f);
 
     return
-        tight * 0.88f
-        + top * 0.12f;
+        tight * 0.68f
+        + body * 0.18f
+        + saturated * 0.14f;
 }
 
 //==============================================================================
@@ -438,8 +475,29 @@ float RG_G4AudioProcessor::toneStack (
     float mid,
     float treble)
 {
+    if (!std::isfinite (input))
+        input = 0.0f;
+
     const float fs =
         static_cast<float> (sampleRate);
+
+    bass =
+        juce::jlimit (
+            0.0f,
+            1.0f,
+            bass);
+
+    mid =
+        juce::jlimit (
+            0.0f,
+            1.0f,
+            mid);
+
+    treble =
+        juce::jlimit (
+            0.0f,
+            1.0f,
+            treble);
 
     //==========================================================================
     // LOW
@@ -458,7 +516,7 @@ float RG_G4AudioProcessor::toneStack (
     const float midLow =
         midLP.lowpass (
             input,
-            900.0f,
+            950.0f,
             fs);
 
     const float middle =
@@ -468,15 +526,17 @@ float RG_G4AudioProcessor::toneStack (
     // HIGH
     //==========================================================================
 
-    const float high =
-        input -
+    const float trebleLow =
         trebleLP.lowpass (
             input,
-            3500.0f,
+            3400.0f,
             fs);
 
+    const float high =
+        input - trebleLow;
+
     //==========================================================================
-    // POT CURVES
+    // CONTROL RESPONSE
     //==========================================================================
 
     const float bassGain =
@@ -484,37 +544,36 @@ float RG_G4AudioProcessor::toneStack (
             bass,
             0.0f,
             1.0f,
-            0.30f,
-            1.70f);
+            0.45f,
+            1.55f);
 
     const float midGain =
         juce::jmap (
             mid,
             0.0f,
             1.0f,
-            0.25f,
-            1.55f);
+            0.35f,
+            1.45f);
 
     const float trebleGain =
         juce::jmap (
             treble,
             0.0f,
             1.0f,
-            0.30f,
-            1.70f);
+            0.45f,
+            1.60f);
 
-    //==========================================================================
-    // PASSIVE-LIKE MIX
-    //==========================================================================
-
-    const float dry =
-        input * 0.12f;
+    float result =
+        input * 0.10f
+        + low * bassGain * 0.55f
+        + middle * midGain * 0.80f
+        + high * trebleGain * 0.55f;
 
     return
-        dry
-        + low * bassGain * 0.50f
-        + middle * midGain * 0.72f
-        + high * trebleGain * 0.52f;
+        juce::jlimit (
+            -3.0f,
+            3.0f,
+            result);
 }
 
 //==============================================================================
@@ -566,6 +625,9 @@ void RG_G4AudioProcessor::processBlock (
     const int samples =
         buffer.getNumSamples();
 
+    if (channels <= 0 || samples <= 0)
+        return;
+
     //==========================================================================
     // BYPASS
     //==========================================================================
@@ -607,229 +669,335 @@ void RG_G4AudioProcessor::processBlock (
 
     const int aggression =
         aggressionParameter != nullptr
-            ? static_cast<int> (
-                aggressionParameter->load())
+            ? juce::jlimit (
+                0,
+                2,
+                static_cast<int> (
+                    aggressionParameter->load()))
             : 1;
 
     //==========================================================================
-    // GAIN POT
-    //==========================================================================
-    //
-    // 1M reference pot.
-    //
-    // We map it into a practical high-gain range.
+    // SAFE PARAMETERS
     //==========================================================================
 
-    const float gainAmount =
+    const float safeGain =
+        juce::jlimit (
+            0.0f,
+            1.0f,
+            gain);
+
+    const float safeBass =
+        juce::jlimit (
+            0.0f,
+            1.0f,
+            bass);
+
+    const float safeMid =
+        juce::jlimit (
+            0.0f,
+            1.0f,
+            mid);
+
+    const float safeTreble =
+        juce::jlimit (
+            0.0f,
+            1.0f,
+            treble);
+
+    const float safeVolume =
+        juce::jlimit (
+            0.0f,
+            1.0f,
+            volume);
+
+    //==========================================================================
+    // HIGH GAIN ARCHITECTURE
+    //==========================================================================
+
+    const float preGain =
         juce::jmap (
-            gain,
+            safeGain,
             0.0f,
             1.0f,
             1.0f,
-            22.0f);
+            5.0f);
 
-    //==========================================================================
-    // OUTPUT LEVEL
-    //==========================================================================
+    const float mainGain =
+        juce::jmap (
+            safeGain,
+            0.0f,
+            1.0f,
+            1.0f,
+            7.5f);
+
+    const float clipDrive =
+        juce::jmap (
+            safeGain,
+            0.0f,
+            1.0f,
+            1.0f,
+            3.2f);
+
+    const float postGain =
+        juce::jmap (
+            safeGain,
+            0.0f,
+            1.0f,
+            1.0f,
+            3.8f);
+
+    const float finalGain =
+        juce::jmap (
+            safeGain,
+            0.0f,
+            1.0f,
+            0.90f,
+            1.45f);
 
     const float outputLevel =
         juce::jmap (
-            volume,
+            safeVolume,
             0.0f,
             1.0f,
             0.0f,
-            1.35f);
+            0.82f);
 
     //==========================================================================
-    // PROCESS CHANNELS
+    // MONO DSP STATE
+    //
+    // The existing processor stores one state per filter/op-amp.
+    // Therefore process the first channel and copy it to the other channel.
+    // This prevents L/R state contamination and crackling.
     //==========================================================================
 
-    for (int channel = 0;
+    float* inputData =
+        buffer.getWritePointer (0);
+
+    for (int sample = 0;
+         sample < samples;
+         ++sample)
+    {
+        float x =
+            inputData[sample];
+
+        if (!std::isfinite (x))
+            x = 0.0f;
+
+        x =
+            juce::jlimit (
+                -2.0f,
+                2.0f,
+                x);
+
+        //==================================================================
+        // INPUT HIGH PASS
+        //==================================================================
+
+        x =
+            inputHP.highpass (
+                x,
+                24.0f,
+                static_cast<float> (sampleRate));
+
+        //==================================================================
+        // U1A PREAMP
+        //==================================================================
+
+        x =
+            opAmpStage (
+                U1A,
+                x,
+                preGain,
+                0.95f);
+
+        //==================================================================
+        // INPUT LOW PASS
+        //==================================================================
+
+        x =
+            inputLP.lowpass (
+                x,
+                17500.0f,
+                static_cast<float> (sampleRate));
+
+        //==================================================================
+        // U1B MAIN HIGH GAIN
+        //==================================================================
+
+        x =
+            opAmpStage (
+                U1B,
+                x,
+                mainGain,
+                0.95f);
+
+        //==================================================================
+        // PRE-CLIP TIGHTENING
+        //==================================================================
+
+        x =
+            stage1HP.highpass (
+                x,
+                45.0f,
+                static_cast<float> (sampleRate));
+
+        x =
+            stage1LP.lowpass (
+                x,
+                14500.0f,
+                static_cast<float> (sampleRate));
+
+        //==================================================================
+        // LED CLIPPING
+        //==================================================================
+
+        x =
+            ledClip (
+                x,
+                clipDrive,
+                aggression);
+
+        //==================================================================
+        // U2A POST CLIP GAIN
+        //==================================================================
+
+        x =
+            opAmpStage (
+                U2A,
+                x,
+                postGain,
+                0.90f);
+
+        //==================================================================
+        // SECOND SATURATION STAGE
+        //==================================================================
+
+        const float saturationAmount =
+            juce::jmap (
+                safeGain,
+                0.0f,
+                1.0f,
+                1.0f,
+                2.4f);
+
+        x =
+            std::tanh (
+                x * saturationAmount);
+
+        //==================================================================
+        // AGGRESSION
+        //==================================================================
+
+        x =
+            aggressionStage (
+                x,
+                aggression);
+
+        //==================================================================
+        // U2B RECOVERY
+        //==================================================================
+
+        x =
+            opAmpStage (
+                U2B,
+                x,
+                1.25f,
+                0.85f);
+
+        //==================================================================
+        // SECOND SOFT CLIP
+        //==================================================================
+
+        const float secondClip =
+            juce::jmap (
+                safeGain,
+                0.0f,
+                1.0f,
+                1.0f,
+                1.75f);
+
+        x =
+            std::tanh (
+                x * secondClip);
+
+        //==================================================================
+        // TONE STACK
+        //==================================================================
+
+        x =
+            toneStack (
+                x,
+                safeBass,
+                safeMid,
+                safeTreble);
+
+        //==================================================================
+        // U3A TONE BUFFER
+        //==================================================================
+
+        x =
+            opAmpStage (
+                U3A,
+                x,
+                1.05f,
+                0.80f);
+
+        //==================================================================
+        // U3B OUTPUT BUFFER
+        //==================================================================
+
+        x =
+            opAmpStage (
+                U3B,
+                x,
+                finalGain,
+                0.80f);
+
+        //==================================================================
+        // OUTPUT HIGH PASS
+        //==================================================================
+
+        x =
+            outputHP.highpass (
+                x,
+                18.0f,
+                static_cast<float> (sampleRate));
+
+        //==================================================================
+        // VOLUME
+        //==================================================================
+
+        x *= outputLevel;
+
+        //==================================================================
+        // FINAL SAFETY LIMIT
+        //==================================================================
+
+        x =
+            std::tanh (
+                x * 1.05f);
+
+        if (!std::isfinite (x))
+            x = 0.0f;
+
+        inputData[sample] = x;
+    }
+
+    //==========================================================================
+    // COPY PROCESSED MONO SIGNAL TO OTHER CHANNELS
+    //==========================================================================
+
+    for (int channel = 1;
          channel < channels;
          ++channel)
     {
-        float* data =
-            buffer.getWritePointer (channel);
-
-        for (int sample = 0;
-             sample < samples;
-             ++sample)
-        {
-            float x =
-                data[sample];
-
-            //==============================================================
-            // INPUT
-            //==============================================================
-
-            x =
-                inputHP.highpass (
-                    x,
-                    18.0f,
-                    static_cast<float> (sampleRate));
-
-            // C1 / R1 style input coupling.
-            x *= 1.10f;
-
-            //==============================================================
-            // U1A
-            // INPUT PREAMP
-            //==============================================================
-
-            x =
-                opAmpStage (
-                    U1A,
-                    x,
-                    1.15f,
-                    1.0f);
-
-            //==============================================================
-            // INPUT LOW PASS
-            //==============================================================
-
-            x =
-                inputLP.lowpass (
-                    x,
-                    18000.0f,
-                    static_cast<float> (sampleRate));
-
-            //==============================================================
-            // U1B
-            // MAIN GAIN
-            //==============================================================
-
-            const float mainGain =
-                1.0f
-                + gainAmount
-                * 0.90f;
-
-            x =
-                opAmpStage (
-                    U1B,
-                    x,
-                    mainGain,
-                    1.0f);
-
-            //==============================================================
-            // STAGE 1 RC
-            //==============================================================
-
-            x =
-                stage1HP.highpass (
-                    x,
-                    35.0f,
-                    static_cast<float> (sampleRate));
-
-            x =
-                stage1LP.lowpass (
-                    x,
-                    15000.0f,
-                    static_cast<float> (sampleRate));
-
-            //==============================================================
-            // LED CLIPPING
-            //==============================================================
-
-            x =
-                ledClip (
-                    x,
-                    1.0f + gain * 1.25f,
-                    aggression);
-
-            //==============================================================
-            // U2A
-            // POST CLIP GAIN
-            //==============================================================
-
-            x =
-                opAmpStage (
-                    U2A,
-                    x,
-                    1.20f,
-                    0.90f);
-
-            //==============================================================
-            // AGGRESSION
-            //==============================================================
-
-            x =
-                aggressionStage (
-                    x,
-                    aggression);
-
-            //==============================================================
-            // U2B
-            // RECOVERY / BUFFER
-            //==============================================================
-
-            x =
-                opAmpStage (
-                    U2B,
-                    x,
-                    1.08f,
-                    0.90f);
-
-            //==============================================================
-            // TONE
-            //==============================================================
-
-            x =
-                toneStack (
-                    x,
-                    bass,
-                    mid,
-                    treble);
-
-            //==============================================================
-            // U3A
-            // TONE BUFFER
-            //==============================================================
-
-            x =
-                opAmpStage (
-                    U3A,
-                    x,
-                    1.04f,
-                    0.80f);
-
-            //==============================================================
-            // U3B
-            // OUTPUT BUFFER
-            //==============================================================
-
-            x =
-                opAmpStage (
-                    U3B,
-                    x,
-                    1.0f,
-                    0.80f);
-
-            //==============================================================
-            // OUTPUT HIGH PASS
-            //==============================================================
-
-            x =
-                outputHP.highpass (
-                    x,
-                    12.0f,
-                    static_cast<float> (sampleRate));
-
-            //==============================================================
-            // VOLUME
-            //==============================================================
-
-            x *= outputLevel;
-
-            //==============================================================
-            // FINAL ANALOG-LIKE OUTPUT LIMIT
-            //==============================================================
-
-            x =
-                std::tanh (
-                    x * 0.92f);
-
-            data[sample] = x;
-        }
+        buffer.copyFrom (
+            channel,
+            0,
+            buffer,
+            0,
+            0,
+            samples);
     }
 }
 
@@ -893,9 +1061,10 @@ void RG_G4AudioProcessor::setStateInformation (
                 *xml));
     }
 }
-//==============================================================
+
+//==============================================================================
 // CREATE PLUGIN INSTANCE
-//==============================================================
+//==============================================================================
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
