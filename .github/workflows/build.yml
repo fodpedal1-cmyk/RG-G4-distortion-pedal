@@ -1,4 +1,4 @@
-name: Build RG Precision Drive
+name: Build RG G4 VST3
 
 on:
   workflow_dispatch:
@@ -15,24 +15,21 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Configure CMake
-        run: |
-          cmake -B build -S . -G "Visual Studio 17 2022" -A x64
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build VST3
-        run: |
-          cmake --build build --config Release --target RG_Precision_Drive_VST3 --parallel
+      - name: Build RG G4
+        run: cmake --build build --config Release
 
       - name: Find VST3
         shell: pwsh
         run: |
-          Write-Host "Searching for VST3..."
+          Write-Host "Searching for RG G4 VST3..."
           Get-ChildItem -Path build -Recurse -Filter "*.vst3" |
-            Select-Object -ExpandProperty FullName
+            Select-Object FullName
 
-      - name: Upload VST3
+      - name: Upload RG G4 VST3
         uses: actions/upload-artifact@v4
         with:
-          name: RG-Precision-Drive-VST3
+          name: RG-G4-VST3
           path: |
             build/**/*.vst3
-          if-no-files-found: error
