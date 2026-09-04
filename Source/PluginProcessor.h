@@ -2,45 +2,33 @@
 
 #include <JuceHeader.h>
 
-//==============================================================
-// RG PRECISION DRIVE AUDIO PROCESSOR
+//==============================================================================
+// RG G4 - High Gain VST3
 //
-// Signal chain:
+// Component-based reference DSP model
 //
-// INPUT
-//   ↓
-// BUFFER / DC BLOCK
-//   ↓
-// NOISE GATE
-//   ↓
-// ATTACK 1-6 RC NETWORK
-//   ↓
-// OP-AMP DRIVE
-//   ↓
-// DIODE CLIPPING
-//   ↓
-// BRIGHT
-//   ↓
-// VOLUME
-//   ↓
-// OUTPUT
+// 3 x TL072 ICs
+// 6 individual op-amp sections:
 //
-// NOTE:
-// No JUCE Oversampling is used.
-// Component values marked MODEL/REFERENCE are modelling values,
-// not a claim of the exact original pedal schematic.
-//==============================================================
+// U1A = Input / Preamp
+// U1B = Main Gain
+// U2A = Clipping / Post Gain
+// U2B = Aggression / Recovery
+// U3A = Tone Buffer
+// U3B = Output
+//
+// This is an original RG DSP implementation based on documented
+// component/reference characteristics. It is not an official Revv circuit.
+//==============================================================================
 
-class RG_Precision_DriveAudioProcessor
-    : public juce::AudioProcessor
+class RG_G4AudioProcessor : public juce::AudioProcessor
 {
 public:
 
-    //==========================================================
-    RG_Precision_DriveAudioProcessor();
-    ~RG_Precision_DriveAudioProcessor() override;
+    RG_G4AudioProcessor();
+    ~RG_G4AudioProcessor() override = default;
 
-    //==========================================================
+    //==========================================================================
     void prepareToPlay (double sampleRate,
                         int samplesPerBlock) override;
 
@@ -53,30 +41,40 @@ public:
         juce::AudioBuffer<float>&,
         juce::MidiBuffer&) override;
 
-    //==========================================================
-    juce::AudioProcessorEditor* createEditor() override;
-    bool hasEditor() const override;
+    //==========================================================================
 
-    //==========================================================
+    juce::AudioProcessorEditor* createEditor() override;
+    bool hasEditor() const override { return true; }
+
     const juce::String getName() const override;
 
-    bool acceptsMidi() const override;
-    bool producesMidi() const override;
-    bool isMidiEffect() const override;
+    bool acceptsMidi() const override { return false; }
+    bool producesMidi() const override { return false; }
+    bool isMidiEffect() const override { return false; }
 
-    double getTailLengthSeconds() const override;
+    double getTailLengthSeconds() const override
+    {
+        return 0.0;
+    }
 
-    //==========================================================
-    int getNumPrograms() override;
-    int getCurrentProgram() override;
-    void setCurrentProgram (int index) override;
+    //==========================================================================
 
-    const juce::String getProgramName (int index) override;
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+
+    void setCurrentProgram (int) override {}
+
+    const juce::String getProgramName (int) override
+    {
+        return {};
+    }
+
     void changeProgramName (
-        int index,
-        const juce::String& newName) override;
+        int,
+        const juce::String&) override {}
 
-    //==========================================================
+    //==========================================================================
+
     void getStateInformation (
         juce::MemoryBlock& destData) override;
 
@@ -84,23 +82,89 @@ public:
         const void* data,
         int sizeInBytes) override;
 
-    //==========================================================
-    // PARAMETER LAYOUT
-    //==========================================================
+    //==========================================================================
 
     static juce::AudioProcessorValueTreeState::ParameterLayout
     createParameterLayout();
 
-    juce::AudioProcessorValueTreeState parameters;
+    juce::AudioProcessorValueTreeState apvts;
 
 private:
 
-    //==========================================================
-    // RC FILTER
-    //==========================================================
-
-    struct RCFilter
+    //==========================================================================
+    // COMPONENT VALUES
+    //==========================================================================
+    struct Components
     {
+        // Resistors
+        static constexpr float R1  = 1'000'000.0f;
+        static constexpr float R2  = 470'000.0f;
+        static constexpr float R3  = 10'000.0f;
+        static constexpr float R4  = 47'000.0f;
+        static constexpr float R5  = 82'000.0f;
+        static constexpr float R6  = 56'000.0f;
+        static constexpr float R7  = 33'000.0f;
+        static constexpr float R8  = 22'000.0f;
+        static constexpr float R9  = 20'000.0f;
+        static constexpr float R10 = 4'700.0f;
+        static constexpr float R11 = 2'000.0f;
+        static constexpr float R12 = 1'500.0f;
+        static constexpr float R13 = 10.0f;
+
+        // Capacitors
+        static constexpr float C1 = 22.0e-9f;
+        static constexpr float C2 = 100.0e-12f;
+        static constexpr float C3 = 4.7e-9f;
+        static constexpr float C4 = 2.2e-9f;
+        static constexpr float C5 = 1.0e-9f;
+        static constexpr float C6 = 220.0e-9f;
+        static constexpr float C7 = 100.0e-9f;
+        static constexpr float C8 = 47.0e-9f;
+        static constexpr float C9 = 10.0e-9f;
+
+        // Pots
+        static constexpr float GAIN_POT   = 1'000'000.0f;
+        static constexpr float BASS_POT   = 100'000.0f;
+        static constexpr float MID_POT    = 100'000.0f;
+        static constexpr float TREBLE_POT = 50'000.0f;
+        static constexpr float VOLUME_POT = 50'000.0f;
+    };
+
+    //==========================================================================
+    // TL072 MODEL
+    //==========================================================================
+
+    struct TL072
+    {
+        // Reference electrical characteristics
+        static constexpr float GBW_HZ = 3.0e6f;
+        static constexpr float SLEW_V_PER_US = 16.0f;
+        static constexpr float INPUT_NOISE = 15.0e-9f;
+        static constexpr float INPUT_RESISTANCE = 1.0e12f;
+
+        // Practical DSP rail
+        static constexpr float RAIL = 12.0f;
+
+        float output = 0.0f;
+
+        void reset();
+
+        float process (
+            float target,
+            float sampleRate,
+            float slewMultiplier);
+    };
+
+    //==========================================================================
+    // FIRST ORDER FILTER
+    //==========================================================================
+
+    struct Filter
+    {
+        float state = 0.0f;
+
+        void reset();
+
         float lowpass (
             float input,
             float cutoff,
@@ -110,209 +174,82 @@ private:
             float input,
             float cutoff,
             float sampleRate);
-
-        void reset();
-
-        float lpState = 0.0f;
-        float hpState = 0.0f;
-        float hpInput = 0.0f;
     };
 
-    //==========================================================
-    // DC BLOCK
-    //==========================================================
+    //==========================================================================
+    // SIX OP-AMP SECTIONS
+    //==========================================================================
 
-    struct DCBlock
-    {
-        float process (float input);
-        void reset();
+    TL072 U1A;
+    TL072 U1B;
 
-        float x1 = 0.0f;
-        float y1 = 0.0f;
-    };
+    TL072 U2A;
+    TL072 U2B;
 
-    //==========================================================
-    // OP-AMP MODEL
-    //==========================================================
+    TL072 U3A;
+    TL072 U3B;
 
-    struct OpAmpModel
-    {
-        float gainBandwidth = 3000000.0f;
-        float slewRate = 1700000.0f;
+    //==========================================================================
+    // FILTERS
+    //==========================================================================
 
-        // MODEL / REFERENCE VALUES
-        float openLoopGain = 100000.0f;
-        float outputLimit = 4.2f;
+    Filter inputHP;
+    Filter inputLP;
 
-        float process (
-            float input,
-            float gain,
-            float sampleRate);
+    Filter stage1HP;
+    Filter stage1LP;
 
-        void reset();
+    Filter stage2HP;
+    Filter stage2LP;
 
-        float state = 0.0f;
-    };
+    Filter bassLP;
+    Filter midLP;
+    Filter trebleLP;
 
-    //==========================================================
-    // DIODE CLIPPER
-    //==========================================================
+    Filter outputHP;
 
-    struct DiodeClipper
-    {
-        float process (float input);
+    //==========================================================================
+    // PARAMETERS
+    //==========================================================================
 
-        // MODEL / REFERENCE diode parameters
-        float forwardVoltage = 0.62f;
-        float softness = 0.12f;
-    };
+    std::atomic<float>* gainParameter = nullptr;
+    std::atomic<float>* bassParameter = nullptr;
+    std::atomic<float>* midParameter = nullptr;
+    std::atomic<float>* trebleParameter = nullptr;
+    std::atomic<float>* volumeParameter = nullptr;
+    std::atomic<float>* aggressionParameter = nullptr;
+    std::atomic<float>* bypassParameter = nullptr;
 
-    //==========================================================
-    // ATTACK NETWORK
-    //==========================================================
+    //==========================================================================
+    double sampleRate = 44100.0;
 
-    struct AttackNetwork
-    {
-        float process (
-            float input,
-            int attackPosition,
-            float sampleRate);
+    //==========================================================================
+    // DSP FUNCTIONS
+    //==========================================================================
 
-        void reset();
-
-        RCFilter filter;
-
-        // MODEL / REFERENCE RC values
-        //
-        // Position 1 = thicker / lower cutoff
-        // Position 6 = tighter / higher cutoff
-        //
-        static constexpr float resistance = 10000.0f;
-
-        static constexpr float capacitors[6] =
-        {
-            470.0e-9f,
-            220.0e-9f,
-            100.0e-9f,
-             68.0e-9f,
-             47.0e-9f,
-             33.0e-9f
-        };
-    };
-
-    //==========================================================
-    // GATE
-    //==========================================================
-
-    struct GateDetector
-    {
-        float process (
-            float input,
-            float gateAmount,
-            float sampleRate);
-
-        void reset();
-
-        float envelope = 0.0f;
-        float gain = 1.0f;
-    };
-
-    //==========================================================
-    // BRIGHT NETWORK
-    //==========================================================
-
-    struct BrightNetwork
-    {
-        float process (
-            float input,
-            float brightAmount,
-            float sampleRate);
-
-        void reset();
-
-        RCFilter filter;
-    };
-
-    //==========================================================
-    // PROCESSING FUNCTIONS
-    //==========================================================
-
-    float processSample (
+    float opAmpStage (
+        TL072& opAmp,
         float input,
-        int channel);
+        float gain,
+        float slewMultiplier);
 
-    float processGate (
-        float input,
-        float gateAmount,
-        int channel);
-
-    float processAttack (
-        float input,
-        float attack,
-        int channel);
-
-    float processDrive (
+    float ledClip (
         float input,
         float drive,
-        int channel);
+        int aggression);
 
-    float processBright (
+    float aggressionStage (
         float input,
-        float bright,
-        int channel);
+        int aggression);
 
-    //==========================================================
-    // PARAMETER SMOOTHING
-    //==========================================================
+    float toneStack (
+        float input,
+        float bass,
+        float mid,
+        float treble);
 
-    juce::SmoothedValue<float> volumeSmoothed;
-    juce::SmoothedValue<float> brightSmoothed;
-    juce::SmoothedValue<float> driveSmoothed;
-    juce::SmoothedValue<float> gateSmoothed;
+    void resetDSP();
 
-    juce::SmoothedValue<float> attackSmoothed;
-
-    //==========================================================
-    // DSP STAGES - LEFT
-    //==========================================================
-
-    DCBlock dcBlockL;
-
-    GateDetector gateL;
-
-    AttackNetwork attackL;
-
-    OpAmpModel opAmpBufferL;
-    OpAmpModel opAmpDriveL;
-
-    DiodeClipper diodeL;
-
-    BrightNetwork brightL;
-
-    //==========================================================
-    // DSP STAGES - RIGHT
-    //==========================================================
-
-    DCBlock dcBlockR;
-
-    GateDetector gateR;
-
-    AttackNetwork attackR;
-
-    OpAmpModel opAmpBufferR;
-    OpAmpModel opAmpDriveR;
-
-    DiodeClipper diodeR;
-
-    BrightNetwork brightR;
-
-    //==========================================================
-    // SAMPLE RATE
-    //==========================================================
-
-    double currentSampleRate = 44100.0;
-
-    //==========================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (
-        RG_Precision_DriveAudioProcessor)
+        RG_G4AudioProcessor)
 };
