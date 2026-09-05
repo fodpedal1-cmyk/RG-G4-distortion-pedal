@@ -284,6 +284,11 @@ void G4LookAndFeel::drawToggleButton (
             bounds.getWidth(),
             bounds.getHeight()) * 0.34f;
 
+    // IMPORTANT:
+    // BYPASS = false means EFFECT ON.
+    const bool effectOn =
+        !button.getToggleState();
+
     // Shadow
     g.setColour (
         juce::Colours::black.withAlpha (0.75f));
@@ -311,22 +316,26 @@ void G4LookAndFeel::drawToggleButton (
         radius * 2.0f,
         radius * 2.0f);
 
-    // Inner face
+    // Inner metal face
     const float inner =
         radius * 0.78f;
 
     g.setGradientFill (
         juce::ColourGradient (
-            button.getToggleState()
-                ? juce::Colour (0xff50ff75)
-                : juce::Colour (0xff444444),
+            effectOn
+                ? juce::Colour (0xff65ff82)
+                : juce::Colour (0xff555555),
+
             centre.x,
             centre.y - inner,
-            button.getToggleState()
+
+            effectOn
                 ? juce::Colour (0xff08752b)
                 : juce::Colour (0xff171717),
+
             centre.x,
             centre.y + inner,
+
             false));
 
     g.fillEllipse (
@@ -334,6 +343,21 @@ void G4LookAndFeel::drawToggleButton (
         centre.y - inner,
         inner * 2.0f,
         inner * 2.0f);
+
+    // Subtle green illumination only when ON
+    if (effectOn)
+    {
+        g.setColour (
+            juce::Colour (0xff38ff68)
+                .withAlpha (0.30f));
+
+        g.drawEllipse (
+            centre.x - inner * 0.82f,
+            centre.y - inner * 0.82f,
+            inner * 1.64f,
+            inner * 1.64f,
+            3.0f);
+    }
 
     // Metal ring
     g.setColour (
@@ -515,19 +539,25 @@ void RG_G4AudioProcessorEditor::setupKnob (
             slider);
 
     if (parameterID == "BASS")
+    {
         bassAttachment = std::move (attachment);
-
+    }
     else if (parameterID == "MID")
+    {
         middleAttachment = std::move (attachment);
-
+    }
     else if (parameterID == "TREBLE")
+    {
         trebleAttachment = std::move (attachment);
-
+    }
     else if (parameterID == "VOLUME")
+    {
         volumeAttachment = std::move (attachment);
-
+    }
     else if (parameterID == "GAIN")
+    {
         gainAttachment = std::move (attachment);
+    }
 }
 
 //==============================================================
@@ -643,7 +673,8 @@ void RG_G4AudioProcessorEditor::paint (
     // RG G4
     //==========================================================
 
-    g.setColour (juce::Colours::white);
+    g.setColour (
+        juce::Colours::white);
 
     g.setFont (
         juce::Font (
@@ -659,143 +690,29 @@ void RG_G4AudioProcessorEditor::paint (
         juce::Justification::centred);
 
     //==========================================================
-    // REALISTIC PLASTIC LED
+    // NO SEPARATE PLASTIC LED
+    //
+    // The separate plastic LED has been removed.
+    // The footswitch itself is the ON indicator.
     //==========================================================
 
-    const float ledX = 250.0f;
-    const float ledY = 478.0f;
+    //==========================================================
+    // FOOTSWITCH STATUS TEXT
+    //==========================================================
 
     auto* bypass =
-        processor.apvts.getRawParameterValue ("BYPASS");
+        processor.apvts.getRawParameterValue (
+            "BYPASS");
 
     const bool active =
         bypass != nullptr
             ? bypass->load() < 0.5f
             : true;
 
-    // Soft green glow
-    if (active)
-    {
-        for (int i = 5; i >= 1; --i)
-        {
-            const float glowRadius =
-                8.0f + static_cast<float> (i) * 5.0f;
-
-            const float alpha =
-                0.025f * static_cast<float> (6 - i);
-
-            g.setColour (
-                juce::Colour (0xff20ff55)
-                    .withAlpha (alpha));
-
-            g.fillEllipse (
-                ledX - glowRadius,
-                ledY - glowRadius,
-                glowRadius * 2.0f,
-                glowRadius * 2.0f);
-        }
-    }
-
-    // Plastic / metal outer ring
-    const float ringRadius = 13.0f;
-
-    g.setGradientFill (
-        juce::ColourGradient (
-            juce::Colour (0xffeeeeee),
-            ledX - 8.0f,
-            ledY - 10.0f,
-            juce::Colour (0xff555555),
-            ledX + 10.0f,
-            ledY + 10.0f,
-            true));
-
-    g.fillEllipse (
-        ledX - ringRadius,
-        ledY - ringRadius,
-        ringRadius * 2.0f,
-        ringRadius * 2.0f);
-
-    // Dark inner ring
-    const float innerRing = 10.5f;
-
     g.setColour (
-        juce::Colour (0xff111111));
-
-    g.fillEllipse (
-        ledX - innerRing,
-        ledY - innerRing,
-        innerRing * 2.0f,
-        innerRing * 2.0f);
-
-    // Transparent green plastic lens
-    const float lensRadius = 8.5f;
-
-    g.setGradientFill (
-        juce::ColourGradient (
-            active
-                ? juce::Colour (0xffbaffc8)
-                : juce::Colour (0xff24452d),
-
-            ledX - 3.0f,
-            ledY - 6.0f,
-
-            active
-                ? juce::Colour (0xff08a83b)
-                : juce::Colour (0xff08150c),
-
-            ledX + 5.0f,
-            ledY + 7.0f,
-
-            true));
-
-    g.fillEllipse (
-        ledX - lensRadius,
-        ledY - lensRadius,
-        lensRadius * 2.0f,
-        lensRadius * 2.0f);
-
-    // Bright inner core
-    if (active)
-    {
-        g.setColour (
-            juce::Colour (0xff39ff69)
-                .withAlpha (0.55f));
-
-        g.fillEllipse (
-            ledX - 5.0f,
-            ledY - 5.0f,
-            10.0f,
-            10.0f);
-    }
-
-    // Glass reflection
-    g.setColour (
-        juce::Colours::white.withAlpha (
-            active ? 0.75f : 0.18f));
-
-    g.fillEllipse (
-        ledX - 4.0f,
-        ledY - 5.0f,
-        3.5f,
-        2.5f);
-
-    // Lens edge
-    g.setColour (
-        juce::Colours::black.withAlpha (0.65f));
-
-    g.drawEllipse (
-        ledX - lensRadius,
-        ledY - lensRadius,
-        lensRadius * 2.0f,
-        lensRadius * 2.0f,
-        1.0f);
-
-    //==========================================================
-    // FOOTSWITCH STATUS TEXT
-    //==========================================================
-
-    g.setColour (
-        juce::Colours::white.withAlpha (0.75f));
+        active
+            ? juce::Colour (0xff55ff77)
+            : juce::Colour (0xff777777));
 
     g.setFont (
         juce::Font (
@@ -922,23 +839,23 @@ void RG_G4AudioProcessorEditor::resized()
     blueLabel.setBounds (
         286,
         286,
-        42,
-        16);
+        50,
+        20);
 
     offLabel.setBounds (
         286,
         344,
-        42,
-        16);
+        50,
+        20);
 
     redLabel.setBounds (
         286,
         402,
-        42,
-        16);
+        50,
+        20);
 
     //==========================================================
-    // ROUND METAL 3PDT FOOTSWITCH
+    // FOOTSWITCH
     //==========================================================
 
     footswitch.setBounds (
